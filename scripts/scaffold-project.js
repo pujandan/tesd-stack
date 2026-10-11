@@ -616,7 +616,7 @@ runMigrations().catch((err) => {
 });
 `);
 
-// 10. src/app.d.ts
+// 10. src/app.d.ts, src/app.html, src/app.css
 writeFile('src/app.d.ts', `import type { AuthUser } from '$lib/server/modules/session';
 import type { Locale } from '$lib/shared/i18n';
 
@@ -630,6 +630,53 @@ declare global {
 }
 
 export {};
+`);
+
+writeFile('src/app.html', `<!doctype html>
+<html lang="en">
+\t<head>
+\t\t<meta charset="utf-8" />
+\t\t<meta name="viewport" content="width=device-width, initial-scale=1" />
+\t\t%sveltekit.head%
+\t</head>
+\t<body data-sveltekit-preload-data="hover">
+\t\t<div style="display: contents">%sveltekit.body%</div>
+\t</body>
+</html>
+`);
+
+writeFile('src/app.css', `/* Baseline application styles — UI-agnostic baseline */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --bg-app: #0d1117;
+  --bg-surface: #161b22;
+  --bg-muted: #21262d;
+  --text-main: #e6edf3;
+  --text-muted: #8b949e;
+  --border-color: #30363d;
+  --accent-color: #58a6ff;
+  --success-color: #238636;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+code {
+  font-family: var(--font-mono);
+}
 `);
 
 // 11. src/hooks.server.ts
@@ -1778,6 +1825,7 @@ export const load: LayoutServerLoad = ({ locals }) => {
 `);
 
 writeFile('src/routes/+layout.svelte', `<script lang="ts">
+  import '../app.css';
   import type { Snippet } from 'svelte';
   import type { LayoutData } from './$types';
   import { getDictionary } from '$lib/shared/i18n';
@@ -1821,12 +1869,6 @@ writeFile('src/routes/+layout.svelte', `<script lang="ts">
 </div>
 
 <style>
-  :global(body) {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: #0d1117;
-    color: #e6edf3;
-  }
   .app-shell {
     min-height: 100vh;
     display: flex;
@@ -1837,8 +1879,8 @@ writeFile('src/routes/+layout.svelte', `<script lang="ts">
     justify-content: space-between;
     align-items: center;
     padding: 1rem 2rem;
-    background: #161b22;
-    border-bottom: 1px solid #30363d;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
   }
   .controls {
     display: flex;
@@ -1846,22 +1888,22 @@ writeFile('src/routes/+layout.svelte', `<script lang="ts">
     gap: 1rem;
   }
   .locale-switcher button {
-    background: #21262d;
-    color: #8b949e;
-    border: 1px solid #30363d;
+    background: var(--bg-muted);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
     padding: 0.3rem 0.6rem;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-weight: 600;
   }
   .locale-switcher button.active {
-    background: #238636;
+    background: var(--success-color);
     color: #fff;
     border-color: #2ea043;
   }
   .user-badge {
     font-size: 0.85rem;
-    color: #8b949e;
+    color: var(--text-muted);
   }
   .content {
     flex: 1;
@@ -1922,7 +1964,7 @@ writeFile('src/routes/+page.svelte', `<script lang="ts">
     margin-top: 2rem;
   }
   .subtitle {
-    color: #8b949e;
+    color: var(--text-muted);
     font-size: 1.15rem;
   }
   .stack-grid {
@@ -1933,24 +1975,24 @@ writeFile('src/routes/+page.svelte', `<script lang="ts">
     text-align: left;
   }
   .card {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
     padding: 1.2rem;
   }
   .card h3 {
     margin-top: 0;
-    color: #58a6ff;
+    color: var(--accent-color);
   }
   .card p {
-    color: #8b949e;
+    color: var(--text-muted);
     font-size: 0.9rem;
     line-height: 1.4;
   }
   .status-box {
-    background: #161b22;
-    border: 1px solid #238636;
-    border-radius: 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--success-color);
+    border-radius: var(--radius-md);
     padding: 1.5rem;
     text-align: left;
     display: inline-block;
@@ -1958,17 +2000,17 @@ writeFile('src/routes/+page.svelte', `<script lang="ts">
   }
   .status-box h4 {
     margin-top: 0;
-    color: #3fb950;
+    color: var(--success-color);
   }
   .status-box ul {
     margin: 0;
     padding-left: 1.2rem;
-    color: #c9d1d9;
+    color: var(--text-main);
     font-size: 0.9rem;
     line-height: 1.8;
   }
   a {
-    color: #58a6ff;
+    color: var(--accent-color);
   }
 </style>
 `);
@@ -2042,4 +2084,9 @@ Next steps to run the application:
   3. Update .env with your PostgreSQL credentials
   4. npm run db:generate && npm run db:migrate
   5. npm run dev
+
+💡 Optional UI Choice (UI-Agnostic):
+   - Baseline clean CSS is provided in src/app.css out of the box.
+   - Prefer tesd-ui design system? Run: python3 <path-to-tesd-ui>/scripts/scaffold.py .
+   - Prefer Tailwind CSS / shadcn-svelte? Install as desired.
 `);

@@ -84,6 +84,7 @@ project-root/
 | 19 | Svelte | Svelte 5 runes; no legacy stores in new code | [code-quality.md](./references/code-quality.md) |
 | 20 | Testing | Unit (services), integration (repositories, routes), authorization test per protected route | [testing.md](./references/testing.md) |
 | 21 | Operations | Health endpoints, structured logs, security headers, CI gates | [production-readiness.md](./references/production-readiness.md) |
+| 22 | Presentation | UI-agnostic presentation layer (SvelteKit 3 + Svelte 5 runes); optional pairing with tesd-ui; zero tight coupling | [architecture.md](./references/architecture.md) |
 
 ## AI Agent Workflow
 

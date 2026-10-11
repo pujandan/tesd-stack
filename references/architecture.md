@@ -262,3 +262,18 @@ export const postService = {
 ```
 
 The test of this architecture: **adding business rules must not make routes or repositories fatter.** Full working example: [playbooks.md](./playbooks.md#reference-implementation-post-module).
+
+## Presentation & UI Layer (Decoupled & UI-Agnostic)
+
+TESD Stack enforces a strict boundary between the backend (Elysia, Drizzle, PostgreSQL) and the presentation layer (SvelteKit 3 + Svelte 5 Runes).
+
+**Key principles:**
+1. **Decoupled by Design:** `tesd-stack` is completely UI-agnostic. It does NOT enforce a specific CSS framework or design system. Developers have full freedom to choose:
+   - **Baseline Vanilla CSS:** Clean, semantic tokens in `src/app.css` (included out of the box with zero external dependencies).
+   - **`tesd-ui` (Optional Companion Skill):** Our companion design system skill featuring 8-state components, locked tokens, GSAP-powered motion, and mobile-safe forms. When desired, developers can scaffold it into `src/lib/components/ui/` via `python3 <path-to-tesd-ui>/scripts/scaffold.py .`.
+   - **Tailwind CSS / shadcn-svelte / daisyUI:** Supported seamlessly via standard SvelteKit integration.
+2. **Strict API Boundary:** Regardless of which UI solution is chosen, the UI layer communicates exclusively through:
+   - Eden Treaty client (`$lib/api/client.ts`) in client components.
+   - Standard SvelteKit `load` functions via `event.fetch` in server routes.
+   - Svelte components never bypass the API boundary to query database repositories directly.
+
