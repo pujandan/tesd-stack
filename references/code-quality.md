@@ -29,7 +29,7 @@ How code reads, not just how it runs. These rules make a large codebase look lik
 | Docs / README / ADRs | English | — |
 | Test names | English, behavior-first | `it('returns 404 when the post belongs to another user')` |
 
-Why (for the agent): mixed-language identifiers break search, review, and tooling; API consumers parse English codes; maintainers (human or AI) must not need a translation layer. User-facing UI copy in other languages belongs in a messages/i18n file, never in logic or identifiers.
+Why (for the agent): mixed-language identifiers break search, review, and tooling; API consumers parse English codes; maintainers (human or AI) must not need a translation layer. User-facing UI copy in other languages belongs in type-safe dictionaries under `src/lib/shared/i18n/` with a dual-locale minimum (`en`/`xx`), never in logic or identifiers. See [i18n-locale.md](./i18n-locale.md).
 
 **Writing style for AI-readable code:** use full words, one concept per name, no slang or abbreviations, no clever wordplay, and explicit units in names for quantities (`timeoutMs`, `ttlSeconds`, `maxBytes`).
 

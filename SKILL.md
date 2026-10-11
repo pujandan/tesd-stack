@@ -15,7 +15,7 @@ Apply to any task (feature, bugfix, refactor, review, scaffolding) in a project 
 
 ## The Eight Non-Negotiable Principles
 
-1. **English only.** Identifiers, comments, commit messages, error messages, API payloads, docs, and branch names are English, even when the user chats in another language. → [code-quality.md](./references/code-quality.md)
+1. **English only & type-safe locale.** Identifiers, comments, commit messages, error messages, API payloads, docs, and branch names are English, even when the user chats in another language. User-facing copy is localized via type-safe dictionaries with a dual-locale minimum (en/xx). → [code-quality.md](./references/code-quality.md), [i18n-locale.md](./references/i18n-locale.md)
 2. **Strict layering.** `route → service → repository → db`. Routes handle HTTP only. Services hold business rules and throw domain errors (no HTTP concepts, no Drizzle imports). Repositories are the ONLY code that touches Drizzle. → [architecture.md](./references/architecture.md)
 3. **One boundary, one validation.** Every request body, query, param, and cookie is validated by Elysia `t` schemas before any logic runs. The Elysia API is the only entry point for UI data and mutations. → [elysia-patterns.md](./references/elysia-patterns.md)
 4. **Optimal queries.** Select only needed columns, never query in loops, always paginate with `LIMIT` (max 50), index every filter+sort combination, wrap multi-write operations in a transaction. → [drizzle-patterns.md](./references/drizzle-patterns.md)
@@ -37,7 +37,7 @@ project-root/
 │   ├── params/uuid.ts                     # SvelteKit param matcher for [id=uuid]
 │   ├── hooks.server.ts                    # Security headers + session bridge (locals.user)
 │   ├── lib/
-│   │   ├── shared/                        # Isomorphic: constants/enums, pure helpers (no server imports)
+│   │   ├── shared/                        # Isomorphic: constants/enums, i18n dictionaries (en/id), pure helpers (no server imports)
 │   │   ├── api/client.ts                  # Eden Treaty client factory (typed API calls)
 │   │   ├── components/ui/                 # Reusable UI primitives
 │   │   └── server/                        # SERVER-ONLY
@@ -59,7 +59,7 @@ project-root/
 
 | # | Area | Rule | Reference |
 |---|---|---|---|
-| 1 | Language | All code artifacts in English | [code-quality.md](./references/code-quality.md) |
+| 1 | Language & Locale | All code artifacts in English; dual-locale minimum (en/xx) in $lib/shared/i18n | [code-quality.md](./references/code-quality.md), [i18n-locale.md](./references/i18n-locale.md) |
 | 2 | Layers | route → service → repository → db; only repositories import Drizzle | [architecture.md](./references/architecture.md) |
 | 3 | Layers | Services throw `DomainError`; zero HTTP concepts in services | [architecture.md](./references/architecture.md) |
 | 4 | Modules | Cross-module access only through the other module's `index.ts` | [architecture.md](./references/architecture.md) |
@@ -107,7 +107,7 @@ npm run deps:cycles      # madge --circular src/lib/server
 
 ## Pre-Completion Checklist
 
-- [ ] All identifiers, comments, messages, and docs are English
+- [ ] All identifiers, comments, API error codes, and docs are English; UI copy localized via type-safe dictionaries (dual-locale minimum)
 - [ ] No `any`; no `as` cast on untrusted data (use schemas/narrowing)
 - [ ] Every route validates body/query/params/cookies and declares a `response` schema
 - [ ] Every protected route has a guard flag AND the repository query is scoped by `userId`
@@ -134,6 +134,7 @@ Read the ones relevant to the task:
 - [auth-session.md](./references/auth-session.md) — Registration, login, sessions, logout, cookies, SSR bridge
 - [security.md](./references/security.md) — Authorization, passwords, injection, XSS, CSRF, uploads, OWASP mapping
 - [code-quality.md](./references/code-quality.md) — English rules, naming, TypeScript, Svelte 5, DRY, tooling
+- [i18n-locale.md](./references/i18n-locale.md) — Multi-language flow, dual-locale minimum (en/id), type-safe dictionaries, SSR hooks, DB content
 - [testing.md](./references/testing.md) — Test pyramid, tooling, templates, authorization tests
 - [production-readiness.md](./references/production-readiness.md) — Config, logging, health, headers, CI/CD, Docker, migrations
 - [playbooks.md](./references/playbooks.md) — Step-by-step: add a feature module, bootstrap a project, reference implementation

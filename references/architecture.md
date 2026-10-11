@@ -176,6 +176,7 @@ One source of truth per category:
 | Request shape | TypeBox schema in `<feature>.schema.ts`; type via `typeof schema.static` | Duplicate Zod/TS interfaces |
 | Response shape | TypeBox DTO schema in `<feature>.schema.ts`; mapper returns that type | Returning raw rows |
 | Enumerations used by DB + validation + UI (roles, statuses) | `src/lib/shared/constants/<name>.ts` as `as const` arrays | Re-declaring the values in `pgEnum`, TypeBox, and Svelte separately |
+| UI copy and i18n dictionaries | `src/lib/shared/i18n/` (see [i18n-locale.md](./i18n-locale.md)) | Hardcoding text in components or services |
 | Pagination limits | `src/lib/shared/constants/pagination.ts` | Magic numbers in schemas/services |
 | Environment | `env.ts` | `process.env` / `$env` reads in modules |
 

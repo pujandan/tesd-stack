@@ -19,7 +19,7 @@ The **TESD Stack** combines the speed and ergonomic elegance of modern TypeScrip
 
 ## 🏛 The Eight Non-Negotiable Principles
 
-1. **English Only**: All identifiers, comments, commit messages, errors, and documentation are strictly in English.
+1. **English Only & Type-Safe Locale**: All identifiers, comments, commit messages, API error codes, and documentation are strictly in English. UI copy and content are localized through type-safe dictionaries with a dual-locale minimum (`en`/`xx`, e.g. Indonesian `id`).
 2. **Strict Layering**: `route → service → repository → db`. Routes handle HTTP only. Services hold domain rules and throw domain errors (zero HTTP concepts, zero Drizzle imports). Repositories are the only code touching Drizzle ORM.
 3. **One Boundary, One Validation**: Every incoming request is validated once by Elysia TypeBox (`t`) schemas. No raw rows returned; all endpoints declare explicit response DTO schemas.
 4. **Optimal Queries**: Select only required columns, never execute queries in loops (no N+1), enforce pagination with `LIMIT ≤ 50`, index every filter and sort pattern, and wrap multi-write operations in transactions.
@@ -107,6 +107,7 @@ Follow the architectural and coding standards specified in `.agents/skills/tesd-
 | [**`auth-session.md`**](./references/auth-session.md) | Opaque session tokens, cookies, login/register flows, SvelteKit SSR session bridge |
 | [**`security.md`**](./references/security.md) | Authorization, IDOR prevention, password hashing (argon2id), SQL injection, CSRF |
 | [**`code-quality.md`**](./references/code-quality.md) | English-only rules, TypeScript strictness, Svelte 5 runes, naming conventions |
+| [**`i18n-locale.md`**](./references/i18n-locale.md) | Multi-language flow, dual-locale minimum (en/id), type-safe dictionaries, SSR hooks, DB content |
 | [**`testing.md`**](./references/testing.md) | Test pyramid, Vitest setup, real PostgreSQL integration tests, IDOR tests |
 | [**`production-readiness.md`**](./references/production-readiness.md) | Env validation, structured logging, health checks, security headers, Docker, CI |
 | [**`playbooks.md`**](./references/playbooks.md) | Step-by-step recipes: add a feature module, bootstrap a project, complete reference implementation |
