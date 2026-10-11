@@ -5,12 +5,12 @@ FROM node:22-alpine AS build
 WORKDIR /app
 
 # Install dependencies first for efficient layer caching
-COPY package*.json ./
-RUN npm ci
+COPY package*.json .npmrc* ./
+RUN npm ci --legacy-peer-deps
 
 # Copy application source and build
 COPY . .
-RUN npm run build && npm prune --omit=dev
+RUN npm run build && npm prune --omit=dev --legacy-peer-deps
 
 # Minimal production runtime stage
 FROM node:22-alpine AS runtime

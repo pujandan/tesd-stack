@@ -105,6 +105,29 @@ export type NewPostValues = Pick<typeof posts.$inferInsert, 'title' | 'content' 
 
 For partial selects the query's own select shape is the type (`{ id: string; title: string }[]`). If you ever write `interface PostRow { id: string; … }` that mirrors a table, delete it.
 
+### Strict Union Typing on Varchar Columns (`.$type<T>()`)
+
+By default, `varchar` or `text` columns are inferred by Drizzle as generic `string`. When mapping database rows to TypeBox DTO schemas in Elysia routes (e.g. `t.Union([t.Literal('draft'), t.Literal('reviewed'), t.Literal('final')])`), this causes TypeScript compiler errors without an unsafe manual type cast (`as`).
+
+Use Drizzle's `.$type<Union>()` chained directly on the column definition:
+
+```ts
+export const posts = pgTable('posts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: varchar('title', { length: 200 }).notNull(),
+  status: varchar('status', { length: 20 })
+    .notNull()
+    .default('draft')
+    .$type<'draft' | 'reviewed' | 'final'>(),
+  ...timestamps
+})
+```
+
+Benefits:
+1. `posts.$inferSelect` yields `status: 'draft' | 'reviewed' | 'final'` instead of generic `string`.
+2. Seamless, type-safe mapping to TypeBox DTO response schemas with zero manual casting.
+3. Compile-time enforcement on all repository inserts and updates.
+
 ## Query Optimization Rules
 
 1. **Select only the columns you use.** `select()` with no arguments is allowed only when every column is consumed (detail views).

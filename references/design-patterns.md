@@ -276,38 +276,41 @@ export function withTransaction<T>(work: (tx: Transaction) => Promise<T>): Promi
 
 **When:** once per project at scaffold time.
 
-**Why `$env/dynamic/private`:** Vite loads `.env` into SvelteKit's `$env` modules, not into `process.env`, so reading `process.env` fails in dev. The module also must not throw during `vite build` analysis, when runtime variables do not exist.
+**Why `$env/dynamic/private` and `import 'dotenv/config'`:** Vite loads `.env` into SvelteKit's `$env` modules at runtime. Adding `import 'dotenv/config'` at the top ensures `process.env` is also pre-populated when running standalone CLI scripts via `tsx` (e.g. `scripts/migrate.ts`, `scripts/seed.ts`).
 
 ```ts
 // src/lib/server/env.ts
+import 'dotenv/config'
 import { env as raw } from '$env/dynamic/private'
 import { building, dev } from '$app/environment'
 
 function required(name: string): string {
-  const value = raw[name]
+  const value = raw[name] ?? process.env[name]
   if (!value) throw new Error(`Missing required environment variable: ${name}`)
   return value
 }
 
 function loadEnv() {
+  const isDev = typeof dev !== 'undefined' ? dev : process.env.NODE_ENV !== 'production'
   return {
     DATABASE_URL: required('DATABASE_URL'),
     ORIGIN: required('ORIGIN'),                         // public origin, e.g. https://app.example.com
-    LOG_LEVEL: raw.LOG_LEVEL ?? (dev ? 'debug' : 'info'),
-    IS_PROD: !dev
+    LOG_LEVEL: raw.LOG_LEVEL ?? process.env.LOG_LEVEL ?? (isDev ? 'debug' : 'info'),
+    IS_PROD: !isDev
   } as const
 }
 
 export type Env = ReturnType<typeof loadEnv>
 
 // During `vite build` the runtime variables are absent; skip validation then.
-export const env: Env = building
+export const env: Env = (typeof building !== 'undefined' && building)
   ? { DATABASE_URL: '', ORIGIN: '', LOG_LEVEL: 'info', IS_PROD: true }
   : loadEnv()
 ```
 
 **Rules:**
-- No module reads `$env/*` or `process.env` except `env.ts`. Exceptions: `drizzle.config.ts`, `scripts/*`, and test setup (they run outside SvelteKit; use `import 'dotenv/config'`).
+- All runtime config reads through `env.ts`.
+- Path aliases in `tsconfig.json` map `$app/*` and `$env/*` to `./tests/mocks/*` so CLI scripts run outside Vite without virtual module resolution errors.
 - Any secret added later (e.g. webhook signing key) is validated here with a minimum length (≥ 32 random bytes) — fail at boot, not on the first request.
 - Commit `.env.example` with every variable and placeholder values; `.env` is gitignored.
 
@@ -321,33 +324,70 @@ export const env: Env = building
 // src/lib/server/errors/domain-error.ts — independent of HTTP
 export type DomainErrorCode =
   | 'BAD_REQUEST' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'NOT_FOUND'
-  | 'CONFLICT' | 'VALIDATION_ERROR' | 'RATE_LIMITED'
+  | 'CONFLICT' | 'VALIDATION_ERROR' | 'UNPROCESSABLE_ENTITY'
+  | 'RATE_LIMITED' | 'AI_PROVIDER_ERROR' | 'INTERNAL_ERROR'
+
+const KNOWN_CODES: DomainErrorCode[] = [
+  'BAD_REQUEST', 'UNAUTHORIZED', 'FORBIDDEN', 'NOT_FOUND',
+  'CONFLICT', 'VALIDATION_ERROR', 'UNPROCESSABLE_ENTITY',
+  'RATE_LIMITED', 'AI_PROVIDER_ERROR', 'INTERNAL_ERROR'
+]
 
 export class DomainError extends Error {
-  constructor(public readonly code: DomainErrorCode, message: string) {
-    super(message)
+  public readonly code: DomainErrorCode
+  public readonly details?: unknown
+
+  constructor(codeOrMessage: DomainErrorCode | string, messageOrDetails?: string | unknown, details?: unknown) {
+    let resolvedCode: DomainErrorCode = 'BAD_REQUEST'
+    let resolvedMessage = 'Domain error'
+    let resolvedDetails: unknown = undefined
+
+    if (KNOWN_CODES.includes(codeOrMessage as DomainErrorCode)) {
+      resolvedCode = codeOrMessage as DomainErrorCode
+      resolvedMessage = typeof messageOrDetails === 'string' ? messageOrDetails : resolvedCode
+      resolvedDetails = typeof messageOrDetails === 'string' ? details : messageOrDetails
+    } else {
+      resolvedMessage = String(codeOrMessage)
+      if (typeof messageOrDetails === 'string' && KNOWN_CODES.includes(messageOrDetails as DomainErrorCode)) {
+        resolvedCode = messageOrDetails as DomainErrorCode
+        resolvedDetails = details
+      } else {
+        resolvedCode = 'BAD_REQUEST'
+        resolvedDetails = messageOrDetails
+      }
+    }
+
+    super(resolvedMessage)
     this.name = new.target.name
+    this.code = resolvedCode
+    this.details = resolvedDetails
   }
 }
 
 export class BadRequestError extends DomainError {
-  constructor(message = 'Invalid request') { super('BAD_REQUEST', message) }
+  constructor(message = 'Invalid request', details?: unknown) { super('BAD_REQUEST', message, details) }
 }
 export class UnauthorizedError extends DomainError {
-  constructor(message = 'Authentication required') { super('UNAUTHORIZED', message) }
+  constructor(message = 'Authentication required', details?: unknown) { super('UNAUTHORIZED', message, details) }
 }
 export class ForbiddenError extends DomainError {
-  constructor(message = 'Insufficient permissions') { super('FORBIDDEN', message) }
+  constructor(message = 'Insufficient permissions', details?: unknown) { super('FORBIDDEN', message, details) }
 }
 export class NotFoundError extends DomainError {
-  constructor(message = 'Resource not found') { super('NOT_FOUND', message) }
+  constructor(message = 'Resource not found', details?: unknown) { super('NOT_FOUND', message, details) }
 }
 export class ConflictError extends DomainError {
-  constructor(message = 'Resource already exists') { super('CONFLICT', message) }
+  constructor(message = 'Resource already exists', details?: unknown) { super('CONFLICT', message, details) }
+}
+export class UnprocessableEntityError extends DomainError {
+  constructor(message = 'Unprocessable entity', details?: unknown) { super('UNPROCESSABLE_ENTITY', message, details) }
+}
+export class AiProviderError extends DomainError {
+  constructor(message = 'Upstream AI provider error', details?: unknown) { super('AI_PROVIDER_ERROR', message, details) }
 }
 export class TooManyRequestsError extends DomainError {
-  constructor(public readonly retryAfterSeconds?: number, message = 'Too many requests') {
-    super('RATE_LIMITED', message)
+  constructor(public readonly retryAfterSeconds?: number, message = 'Too many requests', details?: unknown) {
+    super('RATE_LIMITED', message, details)
   }
 }
 ```
@@ -361,22 +401,23 @@ import { requestContextPlugin } from './request-context.plugin'
 
 const STATUS_BY_CODE = {
   BAD_REQUEST: 400, UNAUTHORIZED: 401, FORBIDDEN: 403, NOT_FOUND: 404,
-  CONFLICT: 409, VALIDATION_ERROR: 422, RATE_LIMITED: 429
+  CONFLICT: 409, VALIDATION_ERROR: 422, UNPROCESSABLE_ENTITY: 422,
+  RATE_LIMITED: 429, AI_PROVIDER_ERROR: 502, INTERNAL_ERROR: 500
 } as const satisfies Record<DomainErrorCode, number>
 
-function envelope(code: string, message: string, requestId: string, fields?: string[]) {
-  return { error: { code, message, requestId, ...(fields ? { fields } : {}) } }
+function envelope(code: string, message: string, requestId: string, details?: unknown) {
+  return { error: { code, message, requestId, ...(details ? { details } : {}) } }
 }
 
 export const errorPlugin = new Elysia({ name: 'error' })
   .use(requestContextPlugin)
   .onError({ as: 'global' }, ({ code, error: err, set, requestId }) => {
     if (err instanceof DomainError) {
-      set.status = STATUS_BY_CODE[err.code]
+      set.status = STATUS_BY_CODE[err.code] ?? 400
       if (err instanceof TooManyRequestsError && err.retryAfterSeconds) {
         set.headers['retry-after'] = String(err.retryAfterSeconds)
       }
-      return envelope(err.code, err.message, requestId)
+      return envelope(err.code, err.message, requestId, err.details)
     }
     switch (code) {
       case 'VALIDATION':

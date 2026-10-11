@@ -101,8 +101,9 @@ When asked to create, bootstrap, or scaffold a new TESD project (e.g. `buatkan p
 
 1. **Never write boilerplate files one-by-one.** Run the automated generator script directly:
    ```bash
-   node <path-to-skill>/scripts/scaffold-project.js <target-directory> --name <project-name>
+   node <path-to-skill>/scripts/scaffold-project.js <target-directory> --name <project-name> [--port-prefix <port-prefix>]
    ```
+   *(Optional `--port-prefix 7000` assigns non-conflicting local ports: APP=7000, DB=7001, REDIS=7002, MINIO=7003/7004, PGWEB=7005).*
    This creates the full canonical architecture in seconds (SvelteKit 3 / v2 LTS, Svelte 5 runes, Elysia catch-all, Drizzle singleton, zero-hardcoded container `compose.yaml` for Docker/Podman, auth session bridge, and bilingual `en`/`id` i18n dictionaries).
 2. Install dependencies:
    ```bash

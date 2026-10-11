@@ -71,8 +71,8 @@ project-root/
 Generate a brand-new, production-ready TESD Stack project in seconds with the built-in CLI scaffolder:
 
 ```bash
-# Generate the project:
-node scripts/scaffold-project.js ./my-app --name "my-app"
+# Generate the project (optional --port-prefix isolates ports e.g. 7000-7005):
+node scripts/scaffold-project.js ./my-app --name "my-app" --port-prefix 7000
 
 # Enter directory and install dependencies:
 cd my-app

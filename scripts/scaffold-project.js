@@ -17,28 +17,57 @@ const args = process.argv.slice(2);
 if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
   console.log(`
 Usage:
-  node scaffold-project.js <target-directory> [--name <project-name>]
+  node scaffold-project.js <target-directory> [--name <project-name>] [--port-prefix <port-prefix>]
 
 Examples:
   node scaffold-project.js ./my-app
-  node scaffold-project.js ../e-commerce --name "store-api"
+  node scaffold-project.js ../e-commerce --name "store-api" --port-prefix 7000
 `);
   process.exit(0);
 }
 
 const targetDirArg = args[0];
 let appName = path.basename(path.resolve(targetDirArg));
+let portPrefix = null;
 
 for (let i = 1; i < args.length; i++) {
   if (args[i] === '--name' && args[i + 1]) {
     appName = args[i + 1];
     i++;
+  } else if ((args[i] === '--port-prefix' || args[i] === '-p') && args[i + 1]) {
+    portPrefix = parseInt(args[i + 1], 10);
+    i++;
   }
+}
+
+let appPort = 3000;
+let dbPort = 5432;
+let redisPort = 6379;
+let minioPortApi = 9000;
+let minioPortConsole = 9001;
+let dbPortWeb = 8081;
+
+if (portPrefix !== null && !isNaN(portPrefix)) {
+  let basePort = portPrefix;
+  if (basePort < 100) {
+    basePort = basePort * 1000;
+  } else if (basePort < 1000) {
+    basePort = basePort * 10;
+  }
+  appPort = basePort;
+  dbPort = basePort + 1;
+  redisPort = basePort + 2;
+  minioPortApi = basePort + 3;
+  minioPortConsole = basePort + 4;
+  dbPortWeb = basePort + 5;
 }
 
 const targetDir = path.resolve(targetDirArg);
 
 console.log(`🚀 Scaffolding TESD Stack project: "${appName}" in ${targetDir}`);
+if (portPrefix !== null && !isNaN(portPrefix)) {
+  console.log(`🔌 Port prefix enabled: APP=${appPort}, DB=${dbPort}, REDIS=${redisPort}, MINIO=${minioPortApi}/${minioPortConsole}, PGWEB=${dbPortWeb}`);
+}
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
@@ -58,6 +87,9 @@ writeFile('package.json', JSON.stringify({
   version: '0.1.0',
   private: true,
   type: 'module',
+  imports: {
+    '#lib/*': './src/lib/*'
+  },
   scripts: {
     dev: 'vite dev',
     build: 'vite build',
@@ -113,8 +145,22 @@ writeFile('tsconfig.json', JSON.stringify({
     verbatimModuleSyntax: true,
     forceConsistentCasingInFileNames: true,
     skipLibCheck: true,
-    moduleResolution: 'bundler'
-  }
+    moduleResolution: 'bundler',
+    paths: {
+      '$lib': ['./src/lib'],
+      '$lib/*': ['./src/lib/*'],
+      '#lib/*': ['./src/lib/*'],
+      '$app/env': ['./tests/mocks/app-env.ts'],
+      '$app/*': ['./tests/mocks/*'],
+      '$env/dynamic/private': ['./tests/mocks/dynamic-private.ts'],
+      '$env/*': ['./tests/mocks/*']
+    }
+  },
+  exclude: [
+    'node_modules',
+    '.svelte-kit/output',
+    'build'
+  ]
 }, null, 2) + '\n');
 
 // 3. svelte.config.js
@@ -126,6 +172,10 @@ const config = {
   preprocess: vitePreprocess(),
   kit: {
     adapter: adapter(),
+    alias: {
+      $lib: 'src/lib',
+      '$lib/*': 'src/lib/*'
+    },
     csp: {
       mode: 'auto',
       directives: {
@@ -144,12 +194,19 @@ export default config;
 
 // 4. vite.config.ts
 writeFile('vite.config.ts', `import { sveltekit } from '@sveltejs/kit/vite';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [sveltekit()],
+  resolve: {
+    alias: {
+      $lib: fileURLToPath(new URL('./src/lib', import.meta.url)),
+      '$lib/*': fileURLToPath(new URL('./src/lib/*', import.meta.url))
+    }
+  },
   server: {
-    port: 3000
+    port: ${appPort}
   }
 });
 `);
@@ -172,7 +229,8 @@ export default defineConfig({
           name: 'unit',
           include: ['src/**/*.test.ts'],
           exclude: ['src/**/*.integration.test.ts'],
-          environment: 'node'
+          environment: 'node',
+          setupFiles: ['./tests/unit-setup.ts']
         }
       },
       {
@@ -214,57 +272,60 @@ COMPOSE_PROJECT_NAME=${appName}
 NODE_ENV=development
 
 # Server & Origin
-APP_PORT=3000
-APP_ORIGIN="http://localhost:3000"
-ORIGIN="http://localhost:3000"
+APP_PORT=${appPort}
+APP_ORIGIN="http://localhost:${appPort}"
+ORIGIN="http://localhost:${appPort}"
 LOG_LEVEL="debug"
-PORT=3000
+PORT=${appPort}
 HOST="0.0.0.0"
 
 # PostgreSQL Database
-DB_PORT=5432
+DB_PORT=${dbPort}
 DB_DATABASE=${appName}
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
 DB_SSL_MODE=disable
-DATABASE_URL="postgres://postgres:postgres@localhost:5432/${appName}?sslmode=disable"
+DATABASE_URL="postgres://postgres:postgres@localhost:${dbPort}/${appName}?sslmode=disable"
 
 # Redis (Cache, Distributed Rate Limiter, Queues)
-REDIS_PORT=6379
+REDIS_PORT=${redisPort}
 REDIS_PASSWORD=""
-REDIS_URL="redis://localhost:6379"
+REDIS_URL="redis://localhost:${redisPort}"
 
 # Object Storage (MinIO / S3)
-S3_ENDPOINT="http://localhost:9000"
+S3_ENDPOINT="http://localhost:${minioPortApi}"
 S3_ACCESS_KEY="minioadmin"
 S3_SECRET_KEY="minioadmin"
 S3_BUCKET="${appName}-uploads"
 S3_REGION="us-east-1"
-MINIO_PORT_API=9000
-MINIO_PORT_CONSOLE=9001
+MINIO_PORT_API=${minioPortApi}
+MINIO_PORT_CONSOLE=${minioPortConsole}
 
 # Database Web UI (pgweb)
-DB_PORT_WEB=8081
+DB_PORT_WEB=${dbPortWeb}
 `;
 
 writeFile('.env.example', envExample);
 writeFile('.env', envExample);
 writeFile('.env.test', `# Dedicated test database ending in _test (prevents destructive TRUNCATE on prod)
-DATABASE_URL="postgres://postgres:postgres@localhost:5432/${appName}_test?sslmode=disable"
-ORIGIN="http://localhost:3000"
+DATABASE_URL="postgres://postgres:postgres@localhost:${dbPort}/${appName}_test?sslmode=disable"
+ORIGIN="http://localhost:${appPort}"
 LOG_LEVEL="error"
 `);
 
-// 8. Container Configuration: Dockerfile, .dockerignore, compose.yaml (Docker & Podman)
+// 8. Container Configuration: .npmrc, Dockerfile, .dockerignore, compose.yaml (Docker & Podman)
+writeFile('.npmrc', `legacy-peer-deps=true
+`);
+
 writeFile('Dockerfile', `# syntax=docker/dockerfile:1
 FROM node:22-alpine AS build
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
+COPY package*.json .npmrc* ./
+RUN npm ci --legacy-peer-deps
 
 COPY . .
-RUN npm run build && npm prune --omit=dev
+RUN npm run build && npm prune --omit=dev --legacy-peer-deps
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
@@ -275,9 +336,9 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./
 
 USER node
-EXPOSE 3000
+EXPOSE ${appPort}
 
-HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1:3000/healthz || exit 1
+HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1:${appPort}/healthz || exit 1
 
 CMD ["node", "build"]
 `);
@@ -320,9 +381,9 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: \${NODE_ENV:-production}
-      PORT: \${APP_PORT:-3000}
+      PORT: \${APP_PORT:-${appPort}}
       HOST: 0.0.0.0
-      ORIGIN: \${APP_ORIGIN:-http://localhost:3000}
+      ORIGIN: \${APP_ORIGIN:-http://localhost:${appPort}}
       DATABASE_URL: postgres://\${DB_USERNAME:-postgres}:\${DB_PASSWORD:-postgres}@postgres:5432/\${DB_DATABASE:-${appName}}?sslmode=\${DB_SSL_MODE:-disable}
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: \${LOG_LEVEL:-info}
@@ -332,14 +393,14 @@ services:
       S3_BUCKET: \${S3_BUCKET:-${appName}-uploads}
       S3_REGION: \${S3_REGION:-us-east-1}
     ports:
-      - "\${APP_PORT:-3000}:\${APP_PORT:-3000}"
+      - "\${APP_PORT:-${appPort}}:\${APP_PORT:-${appPort}}"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:\${APP_PORT:-3000}/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:\${APP_PORT:-${appPort}}/healthz || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -377,7 +438,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "\${DB_PORT:-5432}:5432"
+      - "\${DB_PORT:-${dbPort}}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \${DB_USERNAME:-postgres} -d \${DB_DATABASE:-${appName}}"]
       interval: 10s
@@ -408,7 +469,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "\${REDIS_PORT:-6379}:6379"
+      - "\${REDIS_PORT:-${redisPort}}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 15s
@@ -442,8 +503,8 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "\${MINIO_PORT_API:-9000}:9000"
-      - "\${MINIO_PORT_CONSOLE:-9001}:9001"
+      - "\${MINIO_PORT_API:-${minioPortApi}}:9000"
+      - "\${MINIO_PORT_CONSOLE:-${minioPortConsole}}:9001"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9000/minio/health/live"]
       interval: 20s
@@ -487,7 +548,7 @@ services:
     environment:
       DATABASE_URL: postgres://\${DB_USERNAME:-postgres}:\${DB_PASSWORD:-postgres}@postgres:5432/\${DB_DATABASE:-${appName}}?sslmode=\${DB_SSL_MODE:-disable}
     ports:
-      - "\${DB_PORT_WEB:-8081}:8081"
+      - "\${DB_PORT_WEB:-${dbPortWeb}}:8081"
     depends_on:
       postgres:
         condition: service_healthy
@@ -750,7 +811,9 @@ writeFile('src/lib/shared/i18n/dictionaries/en.ts', `export const en = {
     NOT_FOUND: 'The requested resource was not found.',
     CONFLICT: 'This resource already exists.',
     VALIDATION_ERROR: 'Please check your inputs and try again.',
+    UNPROCESSABLE_ENTITY: 'The request payload is unprocessable or violates business invariants.',
     RATE_LIMITED: 'Too many requests. Please wait a moment.',
+    AI_PROVIDER_ERROR: 'The upstream AI service failed to respond. Please try again.',
     INTERNAL: 'An unexpected server error occurred.'
   }
 } as const;
@@ -785,7 +848,9 @@ export const id = {
     NOT_FOUND: 'Data yang dicari tidak ditemukan.',
     CONFLICT: 'Data sudah ada sebelumnya.',
     VALIDATION_ERROR: 'Mohon periksa kembali input Anda dan coba lagi.',
+    UNPROCESSABLE_ENTITY: 'Permintaan tidak dapat diproses karena melanggar aturan bisnis.',
     RATE_LIMITED: 'Terlalu banyak permintaan. Silakan tunggu beberapa saat.',
+    AI_PROVIDER_ERROR: 'Layanan AI upstream mengalami kendala. Silakan coba kembali.',
     INTERNAL: 'Terjadi kesalahan pada server.'
   }
 } as const satisfies Dictionary;
@@ -811,27 +876,29 @@ export type { Dictionary };
 `);
 
 // 17. Server Infrastructure (env, logger, errors)
-writeFile('src/lib/server/env.ts', `import { env as raw } from '$env/dynamic/private';
+writeFile('src/lib/server/env.ts', `import 'dotenv/config';
+import { env as raw } from '$env/dynamic/private';
 import { building, dev } from '$app/environment';
 
 function required(name: string): string {
-  const value = raw[name];
+  const value = raw[name] ?? process.env[name];
   if (!value) throw new Error(\`Missing required environment variable: \${name}\`);
   return value;
 }
 
 function loadEnv() {
+  const isDev = typeof dev !== 'undefined' ? dev : process.env.NODE_ENV !== 'production';
   return {
     DATABASE_URL: required('DATABASE_URL'),
     ORIGIN: required('ORIGIN'),
-    LOG_LEVEL: raw.LOG_LEVEL ?? (dev ? 'debug' : 'info'),
-    IS_PROD: !dev
+    LOG_LEVEL: raw.LOG_LEVEL ?? process.env.LOG_LEVEL ?? (isDev ? 'debug' : 'info'),
+    IS_PROD: !isDev
   } as const;
 }
 
 export type Env = ReturnType<typeof loadEnv>;
 
-export const env: Env = building
+export const env: Env = (typeof building !== 'undefined' && building)
   ? { DATABASE_URL: '', ORIGIN: '', LOG_LEVEL: 'info', IS_PROD: true }
   : loadEnv();
 `);
@@ -866,38 +933,100 @@ writeFile('src/lib/server/errors/domain-error.ts', `export type DomainErrorCode 
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'VALIDATION_ERROR'
-  | 'RATE_LIMITED';
+  | 'UNPROCESSABLE_ENTITY'
+  | 'RATE_LIMITED'
+  | 'AI_PROVIDER_ERROR'
+  | 'INTERNAL_ERROR';
+
+const KNOWN_CODES: DomainErrorCode[] = [
+  'BAD_REQUEST',
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'CONFLICT',
+  'VALIDATION_ERROR',
+  'UNPROCESSABLE_ENTITY',
+  'RATE_LIMITED',
+  'AI_PROVIDER_ERROR',
+  'INTERNAL_ERROR'
+];
 
 export class DomainError extends Error {
-  constructor(public readonly code: DomainErrorCode, message: string) {
-    super(message);
+  public readonly code: DomainErrorCode;
+  public readonly details?: unknown;
+
+  constructor(codeOrMessage: DomainErrorCode | string, messageOrDetails?: string | unknown, details?: unknown) {
+    let resolvedCode: DomainErrorCode = 'BAD_REQUEST';
+    let resolvedMessage = 'Domain error';
+    let resolvedDetails: unknown = undefined;
+
+    if (KNOWN_CODES.includes(codeOrMessage as DomainErrorCode)) {
+      resolvedCode = codeOrMessage as DomainErrorCode;
+      resolvedMessage = typeof messageOrDetails === 'string' ? messageOrDetails : resolvedCode;
+      resolvedDetails = typeof messageOrDetails === 'string' ? details : messageOrDetails;
+    } else {
+      resolvedMessage = String(codeOrMessage);
+      if (typeof messageOrDetails === 'string' && KNOWN_CODES.includes(messageOrDetails as DomainErrorCode)) {
+        resolvedCode = messageOrDetails as DomainErrorCode;
+        resolvedDetails = details;
+      } else {
+        resolvedCode = 'BAD_REQUEST';
+        resolvedDetails = messageOrDetails;
+      }
+    }
+
+    super(resolvedMessage);
     this.name = new.target.name;
+    this.code = resolvedCode;
+    this.details = resolvedDetails;
   }
 }
 
 export class BadRequestError extends DomainError {
-  constructor(message = 'Invalid request') { super('BAD_REQUEST', message); }
+  constructor(message = 'Invalid request', details?: unknown) {
+    super('BAD_REQUEST', message, details);
+  }
 }
 
 export class UnauthorizedError extends DomainError {
-  constructor(message = 'Authentication required') { super('UNAUTHORIZED', message); }
+  constructor(message = 'Authentication required', details?: unknown) {
+    super('UNAUTHORIZED', message, details);
+  }
 }
 
 export class ForbiddenError extends DomainError {
-  constructor(message = 'Insufficient permissions') { super('FORBIDDEN', message); }
+  constructor(message = 'Insufficient permissions', details?: unknown) {
+    super('FORBIDDEN', message, details);
+  }
 }
 
 export class NotFoundError extends DomainError {
-  constructor(message = 'Resource not found') { super('NOT_FOUND', message); }
+  constructor(message = 'Resource not found', details?: unknown) {
+    super('NOT_FOUND', message, details);
+  }
 }
 
 export class ConflictError extends DomainError {
-  constructor(message = 'Resource already exists') { super('CONFLICT', message); }
+  constructor(message = 'Resource already exists', details?: unknown) {
+    super('CONFLICT', message, details);
+  }
+}
+
+export class UnprocessableEntityError extends DomainError {
+  constructor(message = 'Unprocessable entity', details?: unknown) {
+    super('UNPROCESSABLE_ENTITY', message, details);
+  }
+}
+
+export class AiProviderError extends DomainError {
+  constructor(message = 'Upstream AI provider error', details?: unknown) {
+    super('AI_PROVIDER_ERROR', message, details);
+  }
 }
 
 export class TooManyRequestsError extends DomainError {
-  constructor(public readonly retryAfterSeconds?: number, message = 'Too many requests') {
-    super('RATE_LIMITED', message);
+  constructor(public readonly retryAfterSeconds?: number, message = 'Too many requests', details?: unknown) {
+    super('RATE_LIMITED', message, details);
   }
 }
 `);
@@ -1123,22 +1252,25 @@ const STATUS_BY_CODE = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   VALIDATION_ERROR: 422,
-  RATE_LIMITED: 429
+  UNPROCESSABLE_ENTITY: 422,
+  RATE_LIMITED: 429,
+  AI_PROVIDER_ERROR: 502,
+  INTERNAL_ERROR: 500
 } as const satisfies Record<DomainErrorCode, number>;
 
-function envelope(code: string, message: string, requestId: string, fields?: string[]) {
-  return { error: { code, message, requestId, ...(fields ? { fields } : {}) } };
+function envelope(code: string, message: string, requestId: string, details?: unknown) {
+  return { error: { code, message, requestId, ...(details ? { details } : {}) } };
 }
 
 export const errorPlugin = new Elysia({ name: 'error' })
   .use(requestContextPlugin)
   .onError({ as: 'global' }, ({ code, error: err, set, requestId }) => {
     if (err instanceof DomainError) {
-      set.status = STATUS_BY_CODE[err.code];
+      set.status = STATUS_BY_CODE[err.code] ?? 400;
       if (err instanceof TooManyRequestsError && err.retryAfterSeconds) {
         set.headers['retry-after'] = String(err.retryAfterSeconds);
       }
-      return envelope(err.code, err.message, requestId);
+      return envelope(err.code, err.message, requestId, err.details);
     }
 
     switch (code) {
@@ -1733,12 +1865,34 @@ writeFile('src/routes/+page.svelte', `<script lang="ts">
 </style>
 `);
 
-// 24. Tests: setup, global-setup, guard
+// 24. Tests: setup, global-setup, unit-setup, mocks, guard
 writeFile('tests/helpers/guard.ts', `export function assertTestDatabase(url: string | undefined): asserts url is string {
   if (!url || !new URL(url).pathname.endsWith('_test')) {
     throw new Error('Integration tests require DATABASE_URL pointing to a database whose name ends with "_test".');
   }
 }
+`);
+
+writeFile('tests/unit-setup.ts', `process.env.NODE_ENV = process.env.NODE_ENV ?? 'test';
+process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:${dbPort}/${appName}_test?sslmode=disable';
+process.env.ORIGIN = process.env.ORIGIN ?? 'http://localhost:${appPort}';
+process.env.APP_ORIGIN = process.env.APP_ORIGIN ?? 'http://localhost:${appPort}';
+process.env.LOG_LEVEL = process.env.LOG_LEVEL ?? 'silent';
+`);
+
+writeFile('tests/mocks/app-env.ts', `export const browser = false;
+export const dev = process.env.NODE_ENV !== 'production';
+export const building = false;
+export const version = '1.0.0';
+`);
+
+writeFile('tests/mocks/environment.ts', `export const browser = false;
+export const dev = process.env.NODE_ENV !== 'production';
+export const building = false;
+export const version = '1.0.0';
+`);
+
+writeFile('tests/mocks/dynamic-private.ts', `export const env = process.env;
 `);
 
 writeFile('tests/global-setup.ts', `import { config } from 'dotenv';

@@ -238,10 +238,10 @@ TESD applications ship with production-ready container configurations supporting
 # syntax=docker/dockerfile:1
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+COPY package*.json .npmrc* ./
+RUN npm ci --legacy-peer-deps
 COPY . .
-RUN npm run build && npm prune --omit=dev
+RUN npm run build && npm prune --omit=dev --legacy-peer-deps
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
@@ -259,7 +259,8 @@ Rules:
 1. Multi-stage build isolates build tooling and devDependencies from production image.
 2. Runs as unprivileged `node` user (`USER node`).
 3. Explicit health check against `/healthz`.
-4. `.dockerignore` strictly excludes `.env*`, `node_modules`, `.git`, `.svelte-kit`, logs, and temporary caches.
+4. Copies `.npmrc*` to support peer-dependency overrides (`legacy-peer-deps=true`) in CI/Docker environments.
+5. `.dockerignore` strictly excludes `.env*`, `node_modules`, `.git`, `.svelte-kit`, logs, and temporary caches.
 
 ### 2. Universal Container Compose (`compose.yaml`)
 

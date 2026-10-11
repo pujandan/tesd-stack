@@ -39,7 +39,13 @@ export default defineConfig({
     projects: [   // Vitest ≥ 3 ("workspace" in older versions)
       {
         extends: true,
-        test: { name: 'unit', include: ['src/**/*.test.ts'], exclude: ['src/**/*.integration.test.ts'], environment: 'node' }
+        test: {
+          name: 'unit',
+          include: ['src/**/*.test.ts'],
+          exclude: ['src/**/*.integration.test.ts'],
+          environment: 'node',
+          setupFiles: ['./tests/unit-setup.ts']
+        }
       },
       {
         extends: true,
@@ -63,6 +69,15 @@ export default defineConfig({
 ```
 
 `package.json` scripts: `"test:unit": "vitest run --project unit"`, `"test:integration": "vitest run --project integration"`, `"test": "vitest run"`.
+
+```ts
+// tests/unit-setup.ts — sets dummy environment variables for unit tests without needing a live database
+process.env.NODE_ENV = process.env.NODE_ENV ?? 'test'
+process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/app_test?sslmode=disable'
+process.env.ORIGIN = process.env.ORIGIN ?? 'http://localhost:3000'
+process.env.APP_ORIGIN = process.env.APP_ORIGIN ?? 'http://localhost:3000'
+process.env.LOG_LEVEL = process.env.LOG_LEVEL ?? 'silent'
+```
 
 ```ts
 // tests/helpers/guard.ts — tests TRUNCATE tables: refuse to run against anything but a test database
