@@ -45,6 +45,7 @@ project-root/
 │   │       ├── errors/domain-error.ts     # HTTP-free domain errors
 │   │       ├── db/{index.ts, transaction.ts, errors.ts, schema/}
 │   │       ├── shared/                    # Server helpers: pagination, cursor, rate-limiter
+│   │       ├── utils/markdown.ts          # Plain-text stripper utility (LMS/SMS export)
 │   │       ├── modules/<feature>/         # Vertical feature slice (see architecture.md)
 │   │       ├── env.ts                     # Typed, boot-validated environment
 │   │       └── logger.ts                  # Structured logger (pino)

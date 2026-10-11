@@ -51,6 +51,7 @@ project-root/
 │   │       ├── errors/domain-error.ts     # HTTP-free domain errors
 │   │       ├── db/{index.ts, transaction.ts, errors.ts, schema/}
 │   │       ├── shared/                    # Helpers: pagination, cursor, rate-limiter
+│   │       ├── utils/markdown.ts          # Plain-text stripper utility (LMS/SMS export)
 │   │       ├── modules/<feature>/         # Vertical feature slices (routes, service, repo, schema, mapper)
 │   │       ├── env.ts                     # Boot-validated environment variables
 │   │       └── logger.ts                  # Structured Pino logger
@@ -94,6 +95,7 @@ The generator instantly provisions all 60+ canonical files including:
 - **Docker & Podman Compose**: Zero-hardcoded `compose.yaml` for PostgreSQL 17, Redis 7, MinIO S3 object storage, and pgweb UI reading all variables from `.env`.
 - **Drizzle ORM & PostgreSQL**: Connection pool singleton with Vite HMR protection, millisecond timestamps, and transaction helper.
 - **Ready Auth & Session**: Opaque token sessions, SHA-256 token hashing, Argon2id password hashing, and cookie management.
+- **AI & Content Generation**: Polymorphic artifact versioning, pre-flight scope inspection (`/:resource/:id/scope`), and built-in `stripMarkdownToPlainText` utility for LMS/SMS exports.
 - **Type-Safe i18n**: Bilingual dictionary system (`en` English fallback and `id` Indonesian) with auto-detection.
 - **Observability**: Structured Pino logger with secret redaction, request ID tracking, and `/healthz` + `/readyz` probes.
 

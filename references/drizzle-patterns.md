@@ -88,6 +88,10 @@ Mandatory rules:
 8. **Money:** integer minor units (`integer`/`bigint` cents) or `numeric(precision, scale)`; never `real`/`double`.
 9. **One file per table** in `schema/`, re-exported from `schema/index.ts`.
 10. **Never edit an applied migration.** Schema changes always create a new migration.
+11. **PostgreSQL Array Columns:** Always initialize default values with explicit PostgreSQL type-cast SQL literals:
+    `moduleRefs: uuid('module_refs').array().notNull().default(sql`'{}'::uuid[]`)`
+    `tags: varchar('tags', { length: 50 }).array().notNull().default(sql`'{}'::text[]`)`
+    Passing empty JS arrays (`[]`) without SQL casts triggers syntax errors during Drizzle migrations.
 
 ## Query API: select vs query
 

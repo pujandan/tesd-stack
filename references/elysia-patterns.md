@@ -38,6 +38,12 @@ export const postRoutes = new Elysia({ name: 'post-routes', prefix: '/posts' })
     params: postIdParamsSchema,
     response: { 200: postDetailDtoSchema }
   })
+  // Pre-flight inspection for expensive AI / multi-entity generation (design-patterns.md §14)
+  .get('/:id/scope', ({ user, params }) => postService.inspectScope(user.id, params.id), {
+    requireAuth: true,
+    params: postIdParamsSchema,
+    response: { 200: scopeInspectionResponseSchema }
+  })
   .post('/', async ({ user, body, set }) => {
     const created = await postService.create(user.id, body)
     set.status = 201

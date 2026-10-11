@@ -18,7 +18,9 @@ This file is the **single home** of infrastructure code (plugins, db client, env
 10. [Middleware Plugins (request context, CSRF, rate limit)](#10-middleware-plugins)
 11. [Factory (cursor & pagination)](#11-factory-cursor--pagination)
 12. [Event-Driven Side Effects](#12-event-driven-side-effects)
-13. [Pattern Selection Cheat Sheet](#pattern-selection-cheat-sheet)
+13. [Polymorphic Artifact Versioning](#13-polymorphic-artifact-versioning)
+14. [Pre-Flight Scope Inspection](#14-pre-flight-scope-inspection)
+15. [Pattern Selection Cheat Sheet](#pattern-selection-cheat-sheet)
 
 ---
 
@@ -680,6 +682,116 @@ export const eventBus = {
 
 ---
 
+## 13. Polymorphic Artifact Versioning
+
+**When:** AI-assisted generation, automated document drafting, or iterative content creation (e.g. node summaries, discussion answers, assignment drafts, feedback critiques).
+
+**Problem:** Creating individual entity tables (`node_summaries`, `discussion_answers`, `task_answers`) duplicates versioning columns, review states (`draft`, `reviewed`, `final`), metadata, and audit logs across the schema.
+
+**Canonical Implementation:** A single polymorphic `artifacts` table where each generation is identified by `(scope_type, scope_id, type, version)`.
+
+```ts
+// src/lib/server/db/schema/artifact.ts
+import { index, integer, jsonb, pgTable, text, uuid, varchar } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { timestamps } from './_columns'
+import { users } from './user'
+
+export const ARTIFACT_STATUSES = ['draft', 'reviewed', 'final'] as const
+export type ArtifactStatus = (typeof ARTIFACT_STATUSES)[number]
+
+export const ARTIFACT_SCOPE_TYPES = ['node', 'assignment', 'discussion', 'general'] as const
+export type ArtifactScopeType = (typeof ARTIFACT_SCOPE_TYPES)[number]
+
+export const artifacts = pgTable('artifacts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  scopeType: varchar('scope_type', { length: 50 }).notNull().$type<ArtifactScopeType>(),
+  scopeId: uuid('scope_id').notNull(),
+  type: varchar('type', { length: 50 }).notNull(),
+  version: integer('version').notNull().default(1),
+  content: text('content').notNull(),
+  metadata: jsonb('metadata').notNull().default(sql`'{}'::jsonb`),
+  status: varchar('status', { length: 20 }).notNull().default('draft').$type<ArtifactStatus>(),
+  // Array column with explicit PostgreSQL cast default:
+  moduleRefs: uuid('module_refs').array().notNull().default(sql`'{}'::uuid[]`),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  ...timestamps
+}, (table) => [
+  index('artifacts_scope_version_idx').on(table.scopeType, table.scopeId, table.type, table.version.desc()),
+  index('artifacts_user_idx').on(table.userId, table.createdAt.desc())
+])
+
+export type ArtifactRow = typeof artifacts.$inferSelect
+export type NewArtifactValues = typeof artifacts.$inferInsert
+```
+
+**Version Increment Rule:**
+To create the next version atomically:
+```ts
+// artifact.repository.ts (excerpt)
+async getNextVersion(scopeType: ArtifactScopeType, scopeId: string, type: string): Promise<number> {
+  const [row] = await db
+    .select({ maxVersion: sql<number>`coalesce(max(${artifacts.version}), 0)` })
+    .from(artifacts)
+    .where(and(
+      eq(artifacts.scopeType, scopeType),
+      eq(artifacts.scopeId, scopeId),
+      eq(artifacts.type, type)
+    ))
+  return (row?.maxVersion ?? 0) + 1
+}
+```
+
+---
+
+## 14. Pre-Flight Scope Inspection
+
+**When:** Multi-entity or hierarchical workflows (e.g. multi-module assignments, batch document synthesis) where executing the generation operation consumes external AI tokens, quotas, or long computation times.
+
+**Problem:** Users need visibility into which items and dependencies are included and whether all prerequisites are met *before* triggering the generation call.
+
+**Canonical Implementation:** Provide a pre-flight inspection endpoint `GET /api/:resource/:id/scope` before invoking `POST /api/:resource/:id/generate`.
+
+```ts
+// DTO Schema (Elysia TypeBox)
+import { t } from 'elysia'
+
+export const scopeItemSchema = t.Object({
+  id: t.String({ format: 'uuid' }),
+  title: t.String(),
+  status: t.String(),
+  isReady: t.Boolean()
+})
+
+export const scopeInspectionResponseSchema = t.Object({
+  data: t.Object({
+    isOverridden: t.Boolean(),
+    resolvedItems: t.Array(scopeItemSchema),
+    allItems: t.Array(scopeItemSchema),
+    missingRequirements: t.Array(t.String()),
+    canGenerate: t.Boolean()
+  })
+})
+```
+
+```ts
+// Route handler
+.get('/scope', async ({ user, params }) => {
+  const inspection = await taskService.inspectScope(user.id, params.id)
+  return { data: inspection }
+}, {
+  response: scopeInspectionResponseSchema,
+  requireAuth: true
+})
+```
+
+**Rules:**
+1. Pre-flight endpoints are strictly read-only and never consume AI tokens or mutate state.
+2. `canGenerate` must be `false` if any critical prerequisite in `missingRequirements` is unresolved.
+3. The frontend displays `resolvedItems` and badges indicating readiness before rendering the Generate button.
+
+---
+
 ## Pattern Selection Cheat Sheet
 
 | Situation | Pattern(s) |
@@ -691,3 +803,5 @@ export const eventBus = {
 | Cross-cutting concern | Middleware plugin |
 | Pagination | Cursor factory + `toPage` |
 | Post-commit side effect | Event bus (or outbox when it must not be lost) |
+| AI content generation / revisions | Polymorphic Artifact Versioning |
+| Multi-entity token/quota pre-check | Pre-Flight Scope Inspection |

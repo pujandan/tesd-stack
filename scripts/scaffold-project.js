@@ -1078,9 +1078,42 @@ export const sessions = pgTable('sessions', {
 ]);
 `);
 
+writeFile('src/lib/server/db/schema/artifact.ts', `import { index, integer, jsonb, pgTable, text, uuid, varchar } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { timestamps } from './_columns';
+import { users } from './user';
+
+export const ARTIFACT_STATUSES = ['draft', 'reviewed', 'final'] as const;
+export type ArtifactStatus = (typeof ARTIFACT_STATUSES)[number];
+
+export const ARTIFACT_SCOPE_TYPES = ['node', 'assignment', 'discussion', 'general'] as const;
+export type ArtifactScopeType = (typeof ARTIFACT_SCOPE_TYPES)[number];
+
+export const artifacts = pgTable('artifacts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  scopeType: varchar('scope_type', { length: 50 }).notNull().$type<ArtifactScopeType>(),
+  scopeId: uuid('scope_id').notNull(),
+  type: varchar('type', { length: 50 }).notNull(),
+  version: integer('version').notNull().default(1),
+  content: text('content').notNull(),
+  metadata: jsonb('metadata').notNull().default(sql\`'{}'::jsonb\`),
+  status: varchar('status', { length: 20 }).notNull().default('draft').$type<ArtifactStatus>(),
+  moduleRefs: uuid('module_refs').array().notNull().default(sql\`'{}'::uuid[]\`),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  ...timestamps
+}, (table) => [
+  index('artifacts_scope_version_idx').on(table.scopeType, table.scopeId, table.type, table.version.desc()),
+  index('artifacts_user_idx').on(table.userId, table.createdAt.desc())
+]);
+
+export type ArtifactRow = typeof artifacts.$inferSelect;
+export type NewArtifactValues = typeof artifacts.$inferInsert;
+`);
+
 writeFile('src/lib/server/db/schema/index.ts', `export * from './_columns';
 export * from './user';
 export * from './session';
+export * from './artifact';
 `);
 
 writeFile('src/lib/server/db/index.ts', `import { drizzle } from 'drizzle-orm/node-postgres';
@@ -1213,6 +1246,81 @@ export function createRateLimiter(options: { windowMs: number; max: number }): R
     }
   };
 }
+`);
+
+// 19b. Server Utils (markdown stripper)
+writeFile('src/lib/server/utils/markdown.ts', `/**
+ * stripMarkdownToPlainText — Strips markdown syntax to produce clean plain text.
+ * 
+ * Useful for exporting LLM generated responses into plain text fields
+ * (e.g., legacy LMS Moodle, textareas, SMS, WhatsApp, old forums).
+ */
+export function stripMarkdownToPlainText(markdown: string): string {
+  if (!markdown) return '';
+
+  return markdown
+    // Remove code blocks
+    .replace(/\\\`\\\`\\\`[a-z]*\\n([\\s\\S]*?)\\\`\\\`\\\`/gi, '$1')
+    // Remove inline code
+    .replace(/\\\`([^\\\`]+)\\\`/g, '$1')
+    // Remove images: ![alt](url) -> alt
+    .replace(/!\\[([^\\]]*)\\]\\([^)]*\\)/g, '$1')
+    // Remove links: [text](url) -> text
+    .replace(/\\[([^\\]]+)\\]\\([^)]*\\)/g, '$1')
+    // Remove headings (#, ##, etc.)
+    .replace(/^#{1,6}\\s+(.*)$/gm, '$1')
+    // Remove horizontal rules
+    .replace(/^(\\*{3,}|-{3,}|_{3,})$/gm, '')
+    // Remove blockquotes (> text)
+    .replace(/^\\s*>\\s+(.*)$/gm, '$1')
+    // Remove unordered list markers (*, +, -)
+    .replace(/^[\\s]*[-+*]\\s+/gm, '')
+    // Remove ordered list numbers (1., 2., etc.)
+    .replace(/^[\\s]*\\d+\\.\\s+/gm, '')
+    // Remove bold and italic (***text***, **text**, *text*, ___text___, __text__, _text_)
+    .replace(/([*_~]{1,3})((?:(?!\\1)[\\s\\S])+?)\\1/g, '$2')
+    // Remove strikethrough (~~text~~)
+    .replace(/~~(.*?)~~/g, '$1')
+    // Remove table header dividers (|---|---|)
+    .replace(/^\\|?\\s*[-:]+\\s*\\|[\\s-:|]*$/gm, '')
+    // Clean remaining table pipes
+    .replace(/^\\|\\s*|\\s*\\|$/gm, '')
+    .replace(/\\s*\\|\\s*/g, ' | ')
+    // Remove HTML tags
+    .replace(/<[^>]*>/g, '')
+    // Clean excessive blank lines
+    .replace(/\\n{3,}/g, '\\n\\n')
+    .trim();
+}
+`);
+
+writeFile('src/lib/server/utils/markdown.test.ts', `import { describe, expect, it } from 'vitest';
+import { stripMarkdownToPlainText } from './markdown';
+
+describe('stripMarkdownToPlainText', () => {
+  it('strips headers, bold, links, lists, and tables', () => {
+    const md = \`# Header 1
+This is **bold** and *italic* text with a [link](https://example.com).
+> A blockquote
+- Item 1
+- Item 2
+| Col A | Col B |
+|---|---|
+| Val 1 | Val 2 |\`;
+
+    const plain = stripMarkdownToPlainText(md);
+    expect(plain).not.toContain('#');
+    expect(plain).not.toContain('**');
+    expect(plain).not.toContain('https://example.com');
+    expect(plain).toContain('Header 1');
+    expect(plain).toContain('This is bold and italic text with a link.');
+    expect(plain).toContain('Item 1');
+  });
+
+  it('handles empty strings and nullish values', () => {
+    expect(stripMarkdownToPlainText('')).toBe('');
+  });
+});
 `);
 
 // 20. Elysia Root App & Plugins
