@@ -1,6 +1,6 @@
 # TESD Stack — AI Agent Coding Standard & Architecture Guide
 
-> **TypeScript · ElysiaJS · SvelteKit (Svelte 5) · Drizzle ORM · PostgreSQL**
+> **TypeScript · ElysiaJS · SvelteKit 3 / 2 (Svelte 5 Runes) · Drizzle ORM · PostgreSQL**
 
 An opinionated, production-grade architectural standard and AI agent skill designed for building robust, scalable, and secure full-stack web applications on the **TESD stack**.
 
@@ -12,7 +12,7 @@ The **TESD Stack** combines the speed and ergonomic elegance of modern TypeScrip
 
 - **T — TypeScript**: `strict: true`, `noUncheckedIndexedAccess`, zero `any`, inferred data types from boundary schemas and database definitions.
 - **E — ElysiaJS**: Embedded directly inside SvelteKit as a catch-all route handler (`src/routes/api/[...slugs]/+server.ts`). Provides high-speed TypeBox runtime validation, declarative guard macros, and unified error envelopes.
-- **S — SvelteKit**: Modern Svelte 5 with runes (`$state`, `$derived`, `$props`). The Elysia API serves as the single source of truth for both browser clients and SSR load functions via the typed **Eden Treaty** client.
+- **S — SvelteKit**: Modern SvelteKit 3 (and SvelteKit 2 LTS compatible) with Svelte 5 runes (`$state`, `$derived`, `$props`). The Elysia API serves as the single source of truth for both browser clients and SSR load functions via the typed **Eden Treaty** client.
 - **D — Drizzle ORM**: Type-safe queries using `node-postgres`, millisecond-resolution timestamps, keyset cursor pagination with composite indexes, atomic conditional writes, and strict repository encapsulation.
 
 ---
@@ -83,7 +83,7 @@ npm run dev
 ```
 
 The generator instantly provisions all 60+ canonical files including:
-- **SvelteKit 2 + Svelte 5**: Runes (`$state`, `$derived`, `$props`), SSR session bridge, and root layouts.
+- **SvelteKit 3 + Svelte 5**: Runes (`$state`, `$derived`, `$props`), SSR session bridge, and root layouts (SvelteKit 2 LTS compatible).
 - **Embedded ElysiaJS**: Single catch-all mount at `api/[...slugs]/+server.ts` with TypeBox validation and security plugins.
 - **Drizzle ORM & PostgreSQL**: Connection pool singleton with Vite HMR protection, millisecond timestamps, and transaction helper.
 - **Ready Auth & Session**: Opaque token sessions, SHA-256 token hashing, Argon2id password hashing, and cookie management.

@@ -5,7 +5,7 @@ description: Coding standard for large, long-lived projects on the TESD stack (T
 
 # TESD Stack — AI Agent Coding Standard
 
-**Stack:** TypeScript · SvelteKit · ElysiaJS (embedded in SvelteKit) · Drizzle ORM · PostgreSQL
+**Stack:** TypeScript · SvelteKit (v3 / v2 LTS) · ElysiaJS (embedded in SvelteKit) · Drizzle ORM · PostgreSQL
 
 This skill is the single source of truth for how code MUST be written in a TESD project. Every rule is mandatory unless the user explicitly overrides it for a specific project. If existing project code conflicts with this guide, follow this guide for all new code and tell the user about the conflict instead of silently copying the old pattern.
 
@@ -100,7 +100,7 @@ When asked to create, bootstrap, or scaffold a new TESD project (e.g. `buatkan p
    ```bash
    node <path-to-skill>/scripts/scaffold-project.js <target-directory> --name <project-name>
    ```
-   This creates the full canonical architecture in seconds (SvelteKit 2, Svelte 5 runes, Elysia catch-all, Drizzle singleton, auth session bridge, and bilingual `en`/`id` i18n dictionaries).
+   This creates the full canonical architecture in seconds (SvelteKit 3 / v2 LTS, Svelte 5 runes, Elysia catch-all, Drizzle singleton, auth session bridge, and bilingual `en`/`id` i18n dictionaries).
 2. Install dependencies:
    ```bash
    cd <target-directory> && npm install

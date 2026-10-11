@@ -102,7 +102,7 @@ To instantiate a complete, production-ready TESD project in seconds without manu
 node scripts/scaffold-project.js ./my-app --name "my-app"
 ```
 
-This immediately creates all 60+ canonical files: SvelteKit 2, Svelte 5 runes, Elysia catch-all wiring, Drizzle singleton pool, auth session module with cookies, and bilingual `en`/`id` i18n dictionaries.
+This immediately creates all 60+ canonical files: SvelteKit 3 (or SvelteKit 2 LTS compatible), Svelte 5 runes, Elysia catch-all wiring, Drizzle singleton pool, auth session module with cookies, and bilingual `en`/`id` i18n dictionaries.
 
 ---
 
@@ -131,7 +131,7 @@ Ensure `package.json` includes the canonical scripts expected by verification to
 ```
 
 ### 2. Core Dependencies
-- **Core Framework**: `svelte`, `@sveltejs/kit`, `@sveltejs/adapter-node`, `vite`
+- **Core Framework**: `svelte` (^5.57.0), `@sveltejs/kit` (^3.0.0), `@sveltejs/adapter-node` (^6.0.0), `vite` (^8.0.0)
 - **API & Validation**: `elysia`, `@sinclair/typebox`, `@elysiajs/eden`
 - **Database**: `drizzle-orm`, `drizzle-kit`, `pg`, `@types/pg`
 - **Auth & Crypto**: `@node-rs/argon2`

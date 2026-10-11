@@ -4,7 +4,7 @@
  * scaffold-project.js — Automated Scaffolder for the TESD Stack.
  * 
  * Generates a complete, production-ready, clean architecture codebase:
- * TypeScript + SvelteKit 2 (Svelte 5 runes) + ElysiaJS + Drizzle ORM + PostgreSQL + i18n (en/id).
+ * TypeScript + SvelteKit 3 (Svelte 5 runes) + ElysiaJS + Drizzle ORM + PostgreSQL + i18n (en/id).
  * 
  * Usage:
  *   node scripts/scaffold-project.js <target-dir> [--name <app-name>]
@@ -77,15 +77,15 @@ writeFile('package.json', JSON.stringify({
     '@elysiajs/eden': '^1.2.0',
     '@node-rs/argon2': '^2.0.2',
     '@sinclair/typebox': '^0.34.14',
-    '@sveltejs/adapter-node': '^5.2.11',
+    '@sveltejs/adapter-node': '^6.0.0',
     'drizzle-orm': '^0.39.0',
     elysia: '^1.2.10',
     pg: '^8.13.1',
     pino: '^9.6.0'
   },
   devDependencies: {
-    '@sveltejs/kit': '^2.16.0',
-    '@sveltejs/vite-plugin-svelte': '^5.0.3',
+    '@sveltejs/kit': '^3.0.1',
+    '@sveltejs/vite-plugin-svelte': '^7.3.1',
     '@types/node': '^22.10.10',
     '@types/pg': '^8.11.10',
     dotenv: '^16.4.7',
@@ -93,11 +93,11 @@ writeFile('package.json', JSON.stringify({
     eslint: '^9.18.0',
     madge: '^8.0.0',
     'pino-pretty': '^13.0.0',
-    svelte: '^5.19.0',
+    svelte: '^5.57.2',
     'svelte-check': '^4.1.4',
     tsx: '^4.19.2',
     typescript: '^5.7.3',
-    vite: '^6.0.7',
+    vite: '^8.3.4',
     vitest: '^3.0.0'
   }
 }, null, 2) + '\n');
