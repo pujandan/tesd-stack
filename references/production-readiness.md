@@ -12,7 +12,7 @@ What must exist before a TESD application serves real traffic. Items marked **(r
 - [Proxy, Limits, and Timeouts](#proxy-limits-and-timeouts)
 - [Database Operations](#database-operations)
 - [CI Pipeline](#ci-pipeline)
-- [Docker](#docker)
+- [Docker and Container Compose](#docker-and-container-compose)
 - [Release Checklist](#release-checklist)
 
 ## Configuration
@@ -228,11 +228,15 @@ jobs:
 
 Also: Dependabot/Renovate enabled; branch protection requires the `verify` job and one review; the deploy pipeline runs migrations, then rolls out, then smoke-tests `/readyz`.
 
-## Docker
+## Docker and Container Compose
+
+TESD applications ship with production-ready container configurations supporting both **Docker** (`docker compose`) and **Podman** (`podman compose` / `podman-compose`).
+
+### 1. Multi-Stage Dockerfile
 
 ```dockerfile
 # syntax=docker/dockerfile:1
-FROM node:22-alpine AS build            # pin the minor/digest in real projects
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -251,7 +255,51 @@ HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1:3000/heal
 CMD ["node", "build"]
 ```
 
-Rules: multi-stage, non-root user, no secrets or `.env` in the image (`.dockerignore` excludes `.env*`, `node_modules`, `.git`), one process per container, config from environment, read-only root filesystem where the platform allows.
+Rules:
+1. Multi-stage build isolates build tooling and devDependencies from production image.
+2. Runs as unprivileged `node` user (`USER node`).
+3. Explicit health check against `/healthz`.
+4. `.dockerignore` strictly excludes `.env*`, `node_modules`, `.git`, `.svelte-kit`, logs, and temporary caches.
+
+### 2. Universal Container Compose (`compose.yaml`)
+
+**Strict Rule: Zero Hardcoded Values.** Every service attribute (project name, ports, credentials, storage buckets, resource limits) reads dynamically from `.env` using `${VAR:-fallback}` syntax, guaranteeing portability between local development and production servers.
+
+```yaml
+# Supported commands:
+# Docker: docker compose up -d
+# Podman: podman compose up -d OR podman-compose up -d
+```
+
+Services in the compose topology:
+
+| Service | Image | Purpose | Key Environment Variables |
+|---|---|---|---|
+| `app` | Local build (`Dockerfile`) | SvelteKit 3 + Elysia on Node.js | `APP_PORT`, `APP_ORIGIN`, `DATABASE_URL`, `REDIS_URL` |
+| `postgres` | `postgres:17-alpine` | Primary transactional database | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_PORT` |
+| `redis` | `redis:7-alpine` | Cache, distributed rate limiting, queue worker | `REDIS_PORT`, `REDIS_PASSWORD` |
+| `minio` | `quay.io/minio/minio` | S3-compatible object storage for file uploads | `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `MINIO_PORT_API`, `MINIO_PORT_CONSOLE` |
+| `minio-init` | `docker.io/minio/mc` | Ephemeral bucket creator & policy initializer | `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` |
+| `pgweb` | `sosedoff/pgweb` | Web GUI database browser for local development | `DB_PORT_WEB`, `DATABASE_URL` |
+
+### 3. Container Management Commands
+
+```bash
+# Start all services in the background:
+docker compose up -d     # or: podman-compose up -d
+
+# View service status and health:
+docker compose ps        # or: podman-compose ps
+
+# Stream application logs:
+docker compose logs -f app
+
+# Run database migrations inside container environment:
+docker compose exec app npm run db:migrate
+
+# Stop and remove containers (preserving data volumes):
+docker compose down      # or: podman-compose down
+```
 
 ## Release Checklist
 

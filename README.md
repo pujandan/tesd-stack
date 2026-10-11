@@ -55,6 +55,9 @@ project-root/
 │   │       ├── env.ts                     # Boot-validated environment variables
 │   │       └── logger.ts                  # Structured Pino logger
 │   └── app.d.ts
+├── compose.yaml                           # Multi-service container compose (Docker & Podman)
+├── Dockerfile                             # Multi-stage production container
+├── .dockerignore
 ├── drizzle/                               # Committed migration SQL files
 ├── drizzle.config.ts
 ├── scripts/migrate.ts                     # Production migration runner
@@ -75,7 +78,10 @@ node scripts/scaffold-project.js ./my-app --name "my-app"
 cd my-app
 npm install
 
-# Configure database credentials in .env, then generate & run migrations:
+# Start container infrastructure (or use local PostgreSQL/Redis):
+docker compose up -d    # or: podman-compose up -d
+
+# Generate & run database migrations:
 npm run db:generate && npm run db:migrate
 
 # Start the dev server:
@@ -85,6 +91,7 @@ npm run dev
 The generator instantly provisions all 60+ canonical files including:
 - **SvelteKit 3 + Svelte 5**: Runes (`$state`, `$derived`, `$props`), SSR session bridge, and root layouts (SvelteKit 2 LTS compatible).
 - **Embedded ElysiaJS**: Single catch-all mount at `api/[...slugs]/+server.ts` with TypeBox validation and security plugins.
+- **Docker & Podman Compose**: Zero-hardcoded `compose.yaml` for PostgreSQL 17, Redis 7, MinIO S3 object storage, and pgweb UI reading all variables from `.env`.
 - **Drizzle ORM & PostgreSQL**: Connection pool singleton with Vite HMR protection, millisecond timestamps, and transaction helper.
 - **Ready Auth & Session**: Opaque token sessions, SHA-256 token hashing, Argon2id password hashing, and cookie management.
 - **Type-Safe i18n**: Bilingual dictionary system (`en` English fallback and `id` Indonesian) with auto-detection.

@@ -206,20 +206,47 @@ export default defineConfig({
 });
 `);
 
-// 7. .env.example and .env
-const envExample = `# Database Connection (PostgreSQL)
-DATABASE_URL="postgres://postgres:postgres@localhost:5432/${appName}?sslmode=disable"
+// 7. .env.example, .env, and .env.test
+const envExample = `# ==============================================================================
+# Application & Container Configuration
+# ==============================================================================
+COMPOSE_PROJECT_NAME=${appName}
+NODE_ENV=development
 
-# Application Public Origin
+# Server & Origin
+APP_PORT=3000
+APP_ORIGIN="http://localhost:3000"
 ORIGIN="http://localhost:3000"
-
-# Logging Level (debug, info, warn, error)
 LOG_LEVEL="debug"
-
-# Server Port
 PORT=3000
 HOST="0.0.0.0"
+
+# PostgreSQL Database
+DB_PORT=5432
+DB_DATABASE=${appName}
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_SSL_MODE=disable
+DATABASE_URL="postgres://postgres:postgres@localhost:5432/${appName}?sslmode=disable"
+
+# Redis (Cache, Distributed Rate Limiter, Queues)
+REDIS_PORT=6379
+REDIS_PASSWORD=""
+REDIS_URL="redis://localhost:6379"
+
+# Object Storage (MinIO / S3)
+S3_ENDPOINT="http://localhost:9000"
+S3_ACCESS_KEY="minioadmin"
+S3_SECRET_KEY="minioadmin"
+S3_BUCKET="${appName}-uploads"
+S3_REGION="us-east-1"
+MINIO_PORT_API=9000
+MINIO_PORT_CONSOLE=9001
+
+# Database Web UI (pgweb)
+DB_PORT_WEB=8081
 `;
+
 writeFile('.env.example', envExample);
 writeFile('.env', envExample);
 writeFile('.env.test', `# Dedicated test database ending in _test (prevents destructive TRUNCATE on prod)
@@ -228,7 +255,265 @@ ORIGIN="http://localhost:3000"
 LOG_LEVEL="error"
 `);
 
-// 8. .gitignore
+// 8. Container Configuration: Dockerfile, .dockerignore, compose.yaml (Docker & Podman)
+writeFile('Dockerfile', `# syntax=docker/dockerfile:1
+FROM node:22-alpine AS build
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build && npm prune --omit=dev
+
+FROM node:22-alpine AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+
+COPY --from=build /app/build ./build
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./
+
+USER node
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1:3000/healthz || exit 1
+
+CMD ["node", "build"]
+`);
+
+writeFile('.dockerignore', `node_modules
+.svelte-kit
+build
+dist
+.env
+.env.*
+!.env.example
+.git
+.github
+.gitignore
+*.log
+npm-debug.log*
+.DS_Store
+`);
+
+writeFile('compose.yaml', `# ==============================================================================
+# TESD Stack — Container Compose Template (Docker & Podman Compatible)
+# ==============================================================================
+# ZERO hardcoded configuration: All values read from .env with fallback defaults.
+# Compatible with both \`docker compose\` and \`podman compose\`.
+#
+# Commands:
+#   docker compose up -d    OR    podman compose up -d
+#   docker compose down     OR    podman compose down
+#   docker compose ps       OR    podman compose ps
+#   docker compose logs -f  OR    podman compose logs -f
+# ==============================================================================
+
+services:
+  # 1. Main Application (SvelteKit 3 + Embedded ElysiaJS)
+  app:
+    build:
+      context: .
+      dockerfile: \${APP_DOCKERFILE:-Dockerfile}
+    container_name: \${COMPOSE_PROJECT_NAME:-${appName}}_app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: \${NODE_ENV:-production}
+      PORT: \${APP_PORT:-3000}
+      HOST: 0.0.0.0
+      ORIGIN: \${APP_ORIGIN:-http://localhost:3000}
+      DATABASE_URL: postgres://\${DB_USERNAME:-postgres}:\${DB_PASSWORD:-postgres}@postgres:5432/\${DB_DATABASE:-${appName}}?sslmode=\${DB_SSL_MODE:-disable}
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: \${LOG_LEVEL:-info}
+      S3_ENDPOINT: \${S3_ENDPOINT:-http://minio:9000}
+      S3_ACCESS_KEY: \${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: \${S3_SECRET_KEY:-minioadmin}
+      S3_BUCKET: \${S3_BUCKET:-${appName}-uploads}
+      S3_REGION: \${S3_REGION:-us-east-1}
+    ports:
+      - "\${APP_PORT:-3000}:\${APP_PORT:-3000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:\${APP_PORT:-3000}/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '\${APP_CPU_LIMIT:-2}'
+          memory: \${APP_MEM_LIMIT:-1G}
+        reservations:
+          cpus: '\${APP_CPU_RES:-0.5}'
+          memory: \${APP_MEM_RES:-256M}
+    security_opt:
+      - no-new-privileges:true
+
+  # 2. PostgreSQL Database
+  postgres:
+    image: postgres:\${POSTGRES_VERSION:-17-alpine}
+    container_name: \${COMPOSE_PROJECT_NAME:-${appName}}_postgres
+    restart: unless-stopped
+    command: >
+      postgres
+      -c max_connections=\${DB_MAX_CONNECTIONS:-100}
+      -c shared_buffers=\${DB_SHARED_BUFFERS:-256MB}
+      -c effective_cache_size=\${DB_EFFECTIVE_CACHE:-768MB}
+      -c maintenance_work_mem=\${DB_MAINT_WORK_MEM:-64MB}
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+    environment:
+      POSTGRES_DB: \${DB_DATABASE:-${appName}}
+      POSTGRES_USER: \${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: \${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "\${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \${DB_USERNAME:-postgres} -d \${DB_DATABASE:-${appName}}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '\${DB_CPU_LIMIT:-2}'
+          memory: \${DB_MEM_LIMIT:-2G}
+        reservations:
+          cpus: '\${DB_CPU_RES:-0.5}'
+          memory: \${DB_MEM_RES:-512M}
+    security_opt:
+      - no-new-privileges:true
+
+  # 3. Redis (Cache, Distributed Rate Limiter, and Queues)
+  redis:
+    image: redis:\${REDIS_VERSION:-7-alpine}
+    container_name: \${COMPOSE_PROJECT_NAME:-${appName}}_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    environment:
+      REDIS_REPLICATION_MODE: master
+    volumes:
+      - redis_data:/data
+    ports:
+      - "\${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '\${REDIS_CPU_LIMIT:-1}'
+          memory: \${REDIS_MEM_LIMIT:-512M}
+        reservations:
+          cpus: '\${REDIS_CPU_RES:-0.25}'
+          memory: \${REDIS_MEM_RES:-128M}
+    security_opt:
+      - no-new-privileges:true
+
+  # 4. MinIO (S3-Compatible Object Storage for Uploads)
+  minio:
+    image: quay.io/minio/minio:\${MINIO_VERSION:-RELEASE.2025-09-07T16-13-09Z}
+    container_name: \${COMPOSE_PROJECT_NAME:-${appName}}_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: \${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: \${S3_SECRET_KEY:-minioadmin}
+      MINIO_REGION: \${S3_REGION:-us-east-1}
+      MINIO_BROWSER: \${MINIO_BROWSER:-true}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "\${MINIO_PORT_API:-9000}:9000"
+      - "\${MINIO_PORT_CONSOLE:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9000/minio/health/live"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '\${MINIO_CPU_LIMIT:-1}'
+          memory: \${MINIO_MEM_LIMIT:-1G}
+        reservations:
+          cpus: '\${MINIO_CPU_RES:-0.25}'
+          memory: \${MINIO_MEM_RES:-256M}
+    security_opt:
+      - no-new-privileges:true
+
+  # 5. MinIO Initialization (Auto-Create Default S3 Bucket)
+  minio-init:
+    image: docker.io/minio/mc:\${MINIO_MC_VERSION:-RELEASE.2025-08-13T08-35-41Z}
+    container_name: \${COMPOSE_PROJECT_NAME:-${appName}}_minio_init
+    restart: "no"
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set local http://minio:9000 \${S3_ACCESS_KEY:-minioadmin} \${S3_SECRET_KEY:-minioadmin};
+      /usr/bin/mc mb local/\${S3_BUCKET:-${appName}-uploads} --ignore-existing;
+      /usr/bin/mc anonymous set download local/\${S3_BUCKET:-${appName}-uploads};
+      exit 0;
+      "
+    networks:
+      - app-network
+
+  # 6. Database Web GUI (pgweb)
+  pgweb:
+    image: sosedoff/pgweb:\${PGWEB_VERSION:-latest}
+    container_name: \${COMPOSE_PROJECT_NAME:-${appName}}_pgweb
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://\${DB_USERNAME:-postgres}:\${DB_PASSWORD:-postgres}@postgres:5432/\${DB_DATABASE:-${appName}}?sslmode=\${DB_SSL_MODE:-disable}
+    ports:
+      - "\${DB_PORT_WEB:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  app-network:
+    driver: bridge
+    name: \${COMPOSE_PROJECT_NAME:-${appName}}_app_network
+
+volumes:
+  postgres_data:
+    name: \${COMPOSE_PROJECT_NAME:-${appName}}_postgres_data
+    driver: local
+  redis_data:
+    name: \${COMPOSE_PROJECT_NAME:-${appName}}_redis_data
+    driver: local
+  minio_data:
+    name: \${COMPOSE_PROJECT_NAME:-${appName}}_minio_data
+    driver: local
+`);
+
+// 9. .gitignore
 writeFile('.gitignore', `node_modules/
 .svelte-kit/
 build/

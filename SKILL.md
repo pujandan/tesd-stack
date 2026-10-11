@@ -49,6 +49,9 @@ project-root/
 │   │       ├── env.ts                     # Typed, boot-validated environment
 │   │       └── logger.ts                  # Structured logger (pino)
 │   └── app.d.ts
+├── compose.yaml                           # Multi-service container compose (Docker & Podman)
+├── Dockerfile                             # Multi-stage production container
+├── .dockerignore
 ├── drizzle/                               # Generated migrations (committed)
 ├── drizzle.config.ts
 ├── scripts/migrate.ts                     # Production migration runner
@@ -100,16 +103,20 @@ When asked to create, bootstrap, or scaffold a new TESD project (e.g. `buatkan p
    ```bash
    node <path-to-skill>/scripts/scaffold-project.js <target-directory> --name <project-name>
    ```
-   This creates the full canonical architecture in seconds (SvelteKit 3 / v2 LTS, Svelte 5 runes, Elysia catch-all, Drizzle singleton, auth session bridge, and bilingual `en`/`id` i18n dictionaries).
+   This creates the full canonical architecture in seconds (SvelteKit 3 / v2 LTS, Svelte 5 runes, Elysia catch-all, Drizzle singleton, zero-hardcoded container `compose.yaml` for Docker/Podman, auth session bridge, and bilingual `en`/`id` i18n dictionaries).
 2. Install dependencies:
    ```bash
    cd <target-directory> && npm install
    ```
-3. Configure PostgreSQL credentials in `.env`, then generate and apply migrations:
+3. Start container infrastructure (or use local PostgreSQL/Redis):
+   ```bash
+   docker compose up -d    # or: podman-compose up -d
+   ```
+4. Generate and apply migrations:
    ```bash
    npm run db:generate && npm run db:migrate
    ```
-4. Immediately proceed to building requested domain features using [playbooks.md](./references/playbooks.md#playbook-1-add-a-new-feature-module).
+5. Immediately proceed to building requested domain features using [playbooks.md](./references/playbooks.md#playbook-1-add-a-new-feature-module).
 
 ## Verification Commands
 
