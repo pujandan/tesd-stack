@@ -123,6 +123,17 @@ python3 scripts/audit.py
 
 ---
 
+## 👨‍💻 Author
+
+<a href="https://github.com/pujandan">
+  <img src="https://github.com/pujandan.png" width="80" height="80" alt="Pujan (@pujandan)" style="border-radius: 50%;" />
+</a>
+
+**Pujan** ([@pujandan](https://github.com/pujandan))
+
+---
+
 ## 📄 License
 
-[MIT](./LICENSE) © 2026
+[MIT](./LICENSE) © 2026 [Pujan](https://github.com/pujandan)
+
