@@ -63,6 +63,35 @@ project-root/
 
 ---
 
+## ⚡ Instant Project Scaffolding
+
+Generate a brand-new, production-ready TESD Stack project in seconds with the built-in CLI scaffolder:
+
+```bash
+# Generate the project:
+node scripts/scaffold-project.js ./my-app --name "my-app"
+
+# Enter directory and install dependencies:
+cd my-app
+npm install
+
+# Configure database credentials in .env, then generate & run migrations:
+npm run db:generate && npm run db:migrate
+
+# Start the dev server:
+npm run dev
+```
+
+The generator instantly provisions all 60+ canonical files including:
+- **SvelteKit 2 + Svelte 5**: Runes (`$state`, `$derived`, `$props`), SSR session bridge, and root layouts.
+- **Embedded ElysiaJS**: Single catch-all mount at `api/[...slugs]/+server.ts` with TypeBox validation and security plugins.
+- **Drizzle ORM & PostgreSQL**: Connection pool singleton with Vite HMR protection, millisecond timestamps, and transaction helper.
+- **Ready Auth & Session**: Opaque token sessions, SHA-256 token hashing, Argon2id password hashing, and cookie management.
+- **Type-Safe i18n**: Bilingual dictionary system (`en` English fallback and `id` Indonesian) with auto-detection.
+- **Observability**: Structured Pino logger with secret redaction, request ID tracking, and `/healthz` + `/readyz` probes.
+
+---
+
 ## 🤖 Installing as an AI Agent Skill
 
 This repository is packaged as an AI Agent Skill conforming to the Agent Skills standard and Antigravity specification.

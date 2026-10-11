@@ -92,6 +92,25 @@ Follow this sequence for every coding task:
 5. **Implement.** Copy canonical wiring exactly (catch-all mount, env module, db singleton, error plugin).
 6. **Verify.** Run the commands below, then the checklist. Fix every violation; do not report fixable problems as "known issues".
 
+## Fast Project Scaffolding
+
+When asked to create, bootstrap, or scaffold a new TESD project (e.g. `buatkan project <name>`, `scaffold <name>`, or `/tesd-stack buatkan project ...`):
+
+1. **Never write boilerplate files one-by-one.** Run the automated generator script directly:
+   ```bash
+   node <path-to-skill>/scripts/scaffold-project.js <target-directory> --name <project-name>
+   ```
+   This creates the full canonical architecture in seconds (SvelteKit 2, Svelte 5 runes, Elysia catch-all, Drizzle singleton, auth session bridge, and bilingual `en`/`id` i18n dictionaries).
+2. Install dependencies:
+   ```bash
+   cd <target-directory> && npm install
+   ```
+3. Configure PostgreSQL credentials in `.env`, then generate and apply migrations:
+   ```bash
+   npm run db:generate && npm run db:migrate
+   ```
+4. Immediately proceed to building requested domain features using [playbooks.md](./references/playbooks.md#playbook-1-add-a-new-feature-module).
+
 ## Verification Commands
 
 Run these before declaring a task done (add missing scripts to `package.json` per [playbooks.md](./references/playbooks.md#playbook-2-bootstrap-a-new-project)):

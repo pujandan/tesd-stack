@@ -92,9 +92,21 @@ Follow this layer-by-layer sequence whenever introducing a new vertical slice:
 
 ## Playbook 2: Bootstrap a New Project
 
-Use this checklist and setup configuration when creating a new TESD stack codebase.
+Use the automated scaffolder or the checklist below when creating a new TESD stack codebase.
 
-### 1. `package.json` Standard Scripts
+### 0. Automated Scaffolding (Recommended)
+
+To instantiate a complete, production-ready TESD project in seconds without manual file creation:
+
+```bash
+node scripts/scaffold-project.js ./my-app --name "my-app"
+```
+
+This immediately creates all 60+ canonical files: SvelteKit 2, Svelte 5 runes, Elysia catch-all wiring, Drizzle singleton pool, auth session module with cookies, and bilingual `en`/`id` i18n dictionaries.
+
+---
+
+### 1. Manual Setup Reference & Scripts
 
 Ensure `package.json` includes the canonical scripts expected by verification tooling and CI:
 
