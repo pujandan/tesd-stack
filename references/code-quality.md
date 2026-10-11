@@ -63,7 +63,7 @@ Rules:
 
 ## TypeScript Rules
 
-1. **`strict: true` and `noUncheckedIndexedAccess: true`** in tsconfig. Also `noImplicitOverride`, `noFallthroughCasesInSwitch`. Explicitly exclude build artifacts (`"exclude": ["node_modules", ".svelte-kit/output", "build"]`) to prevent `svelte-check` false-positive type scans on compiled bundles. Configure path aliases for Node subpath imports (`#lib/*` and `$lib/*`) and mock virtual modules (`$app/*`, `$env/*`).
+1. **`strict: true` and `noUncheckedIndexedAccess: true`** in tsconfig. Also `noImplicitOverride`, `noFallthroughCasesInSwitch`. Explicitly exclude build artifacts and static assets (`"exclude": ["node_modules", ".svelte-kit/output", "build", "static"]`) to prevent `svelte-check` false-positive type scans on compiled bundles. Configure path aliases for Node subpath imports (`#lib/*` and `$lib/*`) and mock virtual modules (`$app/*`, `$env/*`).
 2. **`any` is forbidden.** Use `unknown` and narrow, or a precise type. `@ts-ignore` is forbidden; `@ts-expect-error` requires a comment with the reason and an issue reference.
 3. **No `as` casts on untrusted data.** Validate with a schema or narrow with a type guard. `as const` and `satisfies` are fine; a cast after a validated schema is not needed.
 4. **Prefer inference for locals; annotate boundaries:** function signatures, exports, and public APIs.

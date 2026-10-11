@@ -160,7 +160,8 @@ writeFile('tsconfig.json', JSON.stringify({
   exclude: [
     'node_modules',
     '.svelte-kit/output',
-    'build'
+    'build',
+    'static'
   ]
 }, null, 2) + '\n');
 
@@ -194,12 +195,21 @@ export default config;
 `);
 
 // 4. vite.config.ts
-writeFile('vite.config.ts', `import { sveltekit } from '@sveltejs/kit/vite';
+writeFile('vite.config.ts', `import adapter from '@sveltejs/adapter-node';
+import { sveltekit } from '@sveltejs/kit/vite';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [
+    sveltekit({
+      adapter: adapter(),
+      alias: {
+        $lib: 'src/lib',
+        '$lib/*': 'src/lib/*'
+      }
+    })
+  ],
   resolve: {
     alias: {
       $lib: fileURLToPath(new URL('./src/lib', import.meta.url)),
@@ -213,12 +223,21 @@ export default defineConfig({
 `);
 
 // 5. vitest.config.ts
-writeFile('vitest.config.ts', `import { sveltekit } from '@sveltejs/kit/vite';
+writeFile('vitest.config.ts', `import adapter from '@sveltejs/adapter-node';
+import { sveltekit } from '@sveltejs/kit/vite';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [
+    sveltekit({
+      adapter: adapter(),
+      alias: {
+        $lib: 'src/lib',
+        '$lib/*': 'src/lib/*'
+      }
+    })
+  ],
   resolve: {
     alias: { $tests: fileURLToPath(new URL('./tests', import.meta.url)) }
   },
