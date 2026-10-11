@@ -116,6 +116,7 @@ writeFile('package.json', JSON.stringify({
     pino: '^9.6.0'
   },
   devDependencies: {
+    '@lucide/svelte': '^1.54.0',
     '@sveltejs/kit': '^3.0.1',
     '@sveltejs/vite-plugin-svelte': '^7.3.1',
     '@types/node': '^22.10.10',
